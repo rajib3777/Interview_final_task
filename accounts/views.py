@@ -28,11 +28,16 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
 
         return Response({
-
-            "message": "Registration successful. Please check your email to verify your account."
+        
+            "message": "Registration successful! Please verify your email.",
+            
+            "user": UserSerializer(user_data["user"]).data,
+            
+            "token": user_data["token"],
+            
+            "activation_link": user_data["activation_link"]
             
         }, status=status.HTTP_201_CREATED)
-        
     
 class LoginView(APIView):
     
