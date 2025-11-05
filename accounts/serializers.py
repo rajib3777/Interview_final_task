@@ -103,7 +103,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         mail.send()
 
-        return user
         
         print(f"\n📧 Verification link for {user.email}: {activation_link}\n")
 
