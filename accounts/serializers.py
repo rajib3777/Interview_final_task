@@ -104,6 +104,21 @@ class RegisterSerializer(serializers.ModelSerializer):
         mail.send()
 
         return user
+        
+        print(f"\n📧 Verification link for {user.email}: {activation_link}\n")
+
+        
+        api_token, _ = Token.objects.get_or_create(user=user)
+
+        
+        return {
+        
+            "user": user,
+            
+            "token": api_token.key,
+            
+            "activation_link": activation_link
+        }
 
 
 class LoginSerializer(serializers.Serializer):
