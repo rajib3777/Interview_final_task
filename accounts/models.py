@@ -67,6 +67,8 @@ class User(AbstractUser):
         image = models.ImageField(upload_to=user_directory_path, null=True, blank=True)
         
         email = models.EmailField(unique=True)
+
+        is_active = models.BooleanField(default=False)
         
         
         objects = UserManager()
@@ -82,7 +84,5 @@ class User(AbstractUser):
 
         def __str__(self):
             return f"{self.username} ({self.user_type})"
-        
-        
         
 

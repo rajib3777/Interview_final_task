@@ -2,6 +2,12 @@ from django.conf import settings
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
+from django.core.mail import EmailMessage
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth.tokens import default_token_generator
+from django.template.loader import render_to_string
+from django.contrib.sites.shortcuts import get_current_site
 from .models import User
 
 
@@ -60,6 +66,43 @@ class RegisterSerializer(serializers.ModelSerializer):
             
             user_type=validated_data.get('user_type', 'USER'),
         )
+        user.is_active = False
+        user.save()
+
+        request = self.context.get('request')
+
+        current_site = get_current_site(request)
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        token = default_token_generator.make_token(user)
+
+        activation_link = f"http://{current_site.domain}/api/accounts/activate/{uid}/{token}/"
+
+        
+        message = render_to_string('accounts/verify_email.html', {
+
+            'user': user,
+
+            'activation_link': activation_link,
+
+        })
+
+        mail = EmailMessage(
+
+            subject='Verify your email address',
+
+            body=message,
+
+            from_email=settings.DEFAULT_FROM_EMAIL,
+
+            to=[user.email],
+        )
+
+        mail.content_subtype = 'html'
+
+        mail.send()
+
         return user
 
 
@@ -77,6 +120,10 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             
             raise serializers.ValidationError("Invalid email or password.")
+
+        if not user.is_active:
+            
+            raise serializers.ValidationError("Account not activated. Please verify your email.")
 
         if user.user_type == 'STAFF':
             
@@ -97,5 +144,9 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         
         fields = ['id', 'email', 'username', 'full_name', 'phone', 'address', 'image', 'user_type']
+
+
+
+
 
 
