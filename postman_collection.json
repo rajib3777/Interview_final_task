@@ -1,1 +1,166 @@
-
+{
+  "info": {
+    "name": "Interview Final Backend Task - Complete API Collection",
+    "description": "Full API collection for Authentication, Device Management, and Payment modules (Django REST Framework)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Accounts",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"username\": \"testuser\",\n  \"full_name\": \"Test User\",\n  \"password\": \"12345\",\n  \"phone\": \"01700000000\",\n  \"address\": \"Dhaka\",\n  \"user_type\": \"USER\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/accounts/register/", "host": ["{{base_url}}"], "path": ["api","accounts","register"] }
+          }
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"12345\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/accounts/login/", "host": ["{{base_url}}"], "path": ["api","accounts","login"] }
+          }
+        },
+        {
+          "name": "Logout User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Token {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/accounts/logout/", "host": ["{{base_url}}"], "path": ["api","accounts","logout"] }
+          }
+        },
+        {
+          "name": "View Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Token {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/accounts/profile/", "host": ["{{base_url}}"], "path": ["api","accounts","profile"] }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Token {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Updated User\",\n  \"address\": \"Chattogram\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/accounts/profile/", "host": ["{{base_url}}"], "path": ["api","accounts","profile"] }
+          }
+        },
+        {
+          "name": "Activate Account",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/accounts/activate/<uidb64>/<token>/", "host": ["{{base_url}}"], "path": ["api","accounts","activate","<uidb64>","<token>"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💻 Devices",
+      "item": [
+        {
+          "name": "Add Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"device_name\": \"Samsung Galaxy S22\",\n  \"device_type\": \"Mobile\"\n}" },
+            "url": { "raw": "{{base_url}}/api/devices/add/", "host": ["{{base_url}}"], "path": ["api","devices","add"] }
+          }
+        },
+        {
+          "name": "Auto-Detect Device",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Token {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/devices/auto-add/", "host": ["{{base_url}}"], "path": ["api","devices","auto-add"] }
+          }
+        },
+        {
+          "name": "List Devices",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Token {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/devices/list/", "host": ["{{base_url}}"], "path": ["api","devices","list"] }
+          }
+        },
+        {
+          "name": "Delete Device",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Token {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/devices/delete/1/", "host": ["{{base_url}}"], "path": ["api","devices","delete","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💳 Payments",
+      "item": [
+        {
+          "name": "Create Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_method\": \"BKASH\",\n  \"amount\": \"100.00\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/payments/create/", "host": ["{{base_url}}"], "path": ["api","payments","create"] }
+          }
+        },
+        {
+          "name": "Webhook (Simulate Payment Success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transaction_id\": \"<txid>\",\n  \"status\": \"SUCCESS\",\n  \"paymentID\": \"<gateway_payment_id>\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/payments/webhook/", "host": ["{{base_url}}"], "path": ["api","payments","webhook"] }
+          }
+        },
+        {
+          "name": "Check Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Token {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/payments/status/?transaction_id=<txid>",
+              "host": ["{{base_url}}"],
+              "path": ["api","payments","status"],
+              "query": [{ "key": "transaction_id", "value": "<txid>" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
