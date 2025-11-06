@@ -189,4 +189,20 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 STAFF_SECURITY_CODE = os.getenv('STAFF_SECURITY_CODE', 'rajib3777')
 
-PAYMENT_WEBHOOK_SECRET = os.getenv('PAYMENT_WEBHOOK_SECRET', 'demo_webhook_secret_key_rajib3777')
+PAYMENT_WEBHOOK_SECRET = os.getenv('PAYMENT_WEBHOOK_SECRET', 'rajib3777')
+
+
+SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000')
+
+
+#bKash
+BKASH_BASE_URL = os.getenv('BKASH_BASE_URL', 'https://tokenized.sandbox.bka.sh/v1.2.0-beta')
+BKASH_APP_KEY = os.getenv('BKASH_APP_KEY')
+BKASH_APP_SECRET = os.getenv('BKASH_APP_SECRET')
+BKASH_USERNAME = os.getenv('BKASH_USERNAME')
+BKASH_PASSWORD = os.getenv('BKASH_PASSWORD')
+
+#Nagad
+NAGAD_BASE_URL = os.getenv('NAGAD_BASE_URL', 'https://sandbox.mynagad.com')
+NAGAD_MERCHANT_ID = os.getenv('NAGAD_APP_MERCHANTID')
+

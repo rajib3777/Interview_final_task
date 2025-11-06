@@ -1,6 +1,5 @@
 from django.urls import path
-from .views import (
-    DeviceCreateView,
+from .views import (DeviceCreateView,
     DeviceAutoDetectView,
     DeviceListView,
     DeviceDeleteView,

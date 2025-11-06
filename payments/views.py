@@ -2,137 +2,128 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
 from .models import Payment
 from .serializers import PaymentCreateSerializer, PaymentStatusSerializer
-from .utils import verify_signature
-import json
+from .utils import get_bkash_token, nagad_initiate_payment, verify_signature
+from django.conf import settings
+import requests, uuid, json
 
+DEFAULT_TIMEOUT = 20  # seconds
 
 class PaymentCreateView(generics.CreateAPIView):
-
     serializer_class = PaymentCreateSerializer
-
     permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-
         serializer = self.get_serializer(data=request.data, context={'request': request})
-
         serializer.is_valid(raise_exception=True)
-
         payment = serializer.save()
 
+        # ------------------ bKash Sandbox Flow ------------------
+        if payment.payment_method == 'BKASH':
+            token = get_bkash_token()
+            if not token:
+                return Response(
+                    {"detail": "Unable to obtain bKash sandbox token. Check BKASH_* credentials."},
+                    status=status.HTTP_502_BAD_GATEWAY
+                )
 
-        mock_checkout_url = f"https://sandbox.example-pay.local/checkout/{payment.transaction_id}"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "X-APP-Key": settings.BKASH_APP_KEY,
+                "Content-Type": "application/json"
+            }
 
-        data = PaymentStatusSerializer(payment).data
+            payload = {
+                "mode": "0011",
+                "payerReference": str(request.user.id),
+                "callbackURL": f"{settings.SITE_URL}/api/payments/webhook/",
+                "amount": str(payment.amount),
+                "currency": "BDT",
+                "intent": "sale",
+                "merchantInvoiceNumber": str(uuid.uuid4())[:10],
+            }
 
-        data.update({
+            url = f"{settings.BKASH_BASE_URL}/tokenized/checkout/create"
+            try:
+                res = requests.post(url, json=payload, headers=headers, timeout=DEFAULT_TIMEOUT)
+            except Exception as e:
+                return Response(
+                    {"detail": f"bKash create error: {e}"},
+                    status=status.HTTP_502_BAD_GATEWAY
+                )
 
-            "message": "Payment initiated. Use the checkout_url to complete payment (mock).",
-            "checkout_url": mock_checkout_url
+            try:
+                data = res.json()
+                # Typical success fields: paymentID, bkashURL
+                payment.gateway_reference = data.get("paymentID") or payment.gateway_reference
+                payment.status = 'PROCESSING'
+                payment.save(update_fields=["gateway_reference", "status"])
+            except Exception:
+                data = {"error": "Invalid response from bKash sandbox."}
 
-        })
+            # propagate gateway response + local transaction id for client tracking
+            out = {
+                "transaction_id": payment.transaction_id,
+                "status": payment.status,
+                "gateway_response": data
+            }
+            return Response(out, status=res.status_code)
 
-        return Response(data, status=status.HTTP_201_CREATED)
+        # ------------------ Nagad Sandbox Flow ------------------
+        elif payment.payment_method == 'NAGAD':
+            resp = nagad_initiate_payment(payment.amount, str(uuid.uuid4())[:10])
+            payment.status = 'PROCESSING'
+            payment.save(update_fields=["status"])
+            return Response(
+                {"transaction_id": payment.transaction_id, "status": payment.status, "gateway_response": resp},
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response({"error": "Unsupported payment method."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PaymentWebhookView(APIView):
-
-    permission_classes = [permissions.AllowAny] 
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
-
-        
-        raw = request.body
-
+        raw = request.body or b""
         signature = request.headers.get('X-Signature')
 
-        if not verify_signature(raw, signature):
-
+        # If signature invalid AND not in DEBUG, reject. In DEBUG=True, allow for sandbox testing.
+        if not verify_signature(raw, signature) and not getattr(settings, "DEBUG", False):
             return Response({"detail": "Invalid signature."}, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
-
-            payload = json.loads(raw.decode('utf-8'))
-
+            payload = json.loads(raw.decode('utf-8') or "{}")
         except Exception:
-
             return Response({"detail": "Invalid JSON."}, status=status.HTTP_400_BAD_REQUEST)
 
-        
+        # Accept either our own client transaction_id or gateway_reference
         txid = payload.get('transaction_id')
-
-        gw_ref = payload.get('gateway_reference')
-        
+        gateway_ref = payload.get('paymentID') or payload.get('gateway_reference')
         new_status = (payload.get('status') or '').upper()
 
-        if not txid or new_status not in ['SUCCESS', 'FAILED', 'CANCELED']:
+        payment = None
+        if txid:
+            payment = get_object_or_404(Payment, transaction_id=txid)
+        elif gateway_ref:
+            payment = get_object_or_404(Payment, gateway_reference=gateway_ref)
+        else:
+            return Response({"detail": "Missing transaction identifiers."}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({"detail": "Missing or invalid fields."}, status=status.HTTP_400_BAD_REQUEST)
+        if new_status in ['SUCCESS', 'FAILED', 'CANCELED']:
+            payment.status = new_status
+            payment.metadata['webhook_payload'] = payload
+            payment.save(update_fields=['status', 'metadata'])
 
-        payment = get_object_or_404(Payment, transaction_id=txid)
-
-        
-        if payment.status in ['SUCCESS', 'FAILED', 'CANCELED']:
-
-           
-            return Response({"detail": "Already finalized."}, status=status.HTTP_200_OK)
-
-        payment.status = new_status
-
-        payment.gateway_reference = gw_ref
-
-        
-        meta = payment.metadata or {}
-
-        meta['webhook_payload'] = payload
-        
-        payment.metadata = meta
-
-        payment.save(update_fields=['status', 'gateway_reference', 'metadata', 'updated_at'])
-        
-
-        return Response({"detail": "Payment updated.", "status": payment.status}, status=status.HTTP_200_OK)
-
+        return Response({"status": payment.status, "transaction_id": payment.transaction_id}, status=status.HTTP_200_OK)
 
 
 class PaymentStatusView(APIView):
-
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-       
         txid = request.query_params.get('transaction_id')
-
-        pid = request.query_params.get('id')
-
-
-        if not txid and not pid:
-
-            return Response({"detail": "Provide transaction_id or id."}, status=status.HTTP_400_BAD_REQUEST)
-        
-
-        qs = Payment.objects.all()
-
-        if not (request.user.is_superuser or getattr(request.user, 'user_type', '') == 'ADMIN'):
-
-            qs = qs.filter(user=request.user)
-
-
-        if txid:
-
-            payment = get_object_or_404(qs, transaction_id=txid)
-
-        else:
-
-            payment = get_object_or_404(qs, id=pid)
-
-
-
-        data = PaymentStatusSerializer(payment).data
-
-        
-        return Response(data, status=status.HTTP_200_OK)
-
+        payment = get_object_or_404(Payment, transaction_id=txid, user=request.user)
+        return Response(PaymentStatusSerializer(payment).data, status=status.HTTP_200_OK)
