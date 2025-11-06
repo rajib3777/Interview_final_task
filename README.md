@@ -180,58 +180,6 @@ python mock_bkash.py
 python manage.py runserver
 
 
-
-#  TESTING WITH POSTMAN OR CURL
-
-
-# Step 1 → Create a new payment
-# Replace <your_token> with your DRF authentication token.
-curl -X POST "http://127.0.0.1:8000/api/payments/create/" \
-  -H "Authorization: Token <your_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"payment_method":"BKASH","amount":"100.00"}'
-
-# ✅ Expected response:
-# {
-#   "transaction_id": "abcd1234...",
-#   "status": "PROCESSING",
-#   "gateway_response": {
-#       "paymentID": "MOCKPAYxxxx",
-#       "bkashURL": "https://mock.bkash.local/checkout/MOCKPAYxxxx",
-#       "status": "SUCCESS"
-#   }
-# }
-
-# Step 2 → Simulate webhook (mark payment as SUCCESS)
-# Replace MOCKPAYxxxx with the paymentID from the previous response.
-curl -X POST "http://127.0.0.1:9000/v1.2.0-beta/mock/send_webhook/MOCKPAYxxxx?site=http://127.0.0.1:8000" \
-  -H "Content-Type: application/json"
-
-# ✅ Expected response:
-# {
-#   "posted_to": "http://127.0.0.1:8000/api/payments/webhook/",
-#   "status_code": 200,
-#   "response_text": "{\"status\":\"SUCCESS\",\"transaction_id\":\"abcd1234...\"}"
-# }
-
-# Step 3 → Check payment status
-# Replace transaction_id with the one returned from step 1.
-curl -X GET "http://127.0.0.1:8000/api/payments/status/?transaction_id=abcd1234..." \
-  -H "Authorization: Token <your_token>"
-
-# ✅ Expected final output:
-# {
-#   "transaction_id": "abcd1234...",
-#   "status": "SUCCESS",
-#   "payment_method": "BKASH",
-#   "amount": "100.00",
-#   "gateway_reference": "MOCKPAYxxxx"
-# }
-
-
-#  DONE ✅ — FULL END-TO-END LOCAL SANDBOX FLOW COMPLETED
-
-
 # You can now test the entire payment flow (create → webhook → status)
 # locally without internet or external sandbox credentials.
 
